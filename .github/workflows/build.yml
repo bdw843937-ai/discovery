@@ -16,7 +16,8 @@ jobs:
           gradle-version: "8.9"
       - name: Generate project
         run: |
-          mkdir -p app/src/main/java/com/example/discovery
+          mkdir -p app/src/main/java/com/example/discovery app/src/main/res/mipmap-anydpi-v26 app/src/main/res/values app/src/main/res/drawable app/src/main/res/drawable-nodpi
+          cp header.jpg app/src/main/res/drawable-nodpi/header.jpg
           cat > settings.gradle.kts <<'EOF_0'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositories { google(); mavenCentral() } }
@@ -47,8 +48,8 @@ jobs:
                   applicationId = "com.example.discovery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0"
+                  versionCode = 2
+                  versionName = "1.1"
               }
               buildFeatures { compose = true }
               compileOptions {
@@ -76,7 +77,8 @@ jobs:
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
               <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
               <application
-                  android:label="Discovery"
+                  android:label="Sami ديسكفري"
+                  android:icon="@mipmap/ic_launcher"
                   android:usesCleartextTraffic="true"
                   android:theme="@android:style/Theme.Material.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
@@ -88,7 +90,32 @@ jobs:
               </application>
           </manifest>
           EOF_4
-          cat > app/src/main/java/com/example/discovery/MainActivity.kt <<'EOF_5'
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF_5'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF_5
+          cat > app/src/main/res/values/colors.xml <<'EOF_6'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="ic_launcher_background">#16241E</color>
+          </resources>
+          EOF_6
+          cat > app/src/main/res/drawable/ic_launcher_foreground.xml <<'EOF_7'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#007A3D" android:pathData="M27,36 L81,36 L81,48 L27,48 Z"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M27,48 L81,48 L81,60 L27,60 Z"/>
+              <path android:fillColor="#000000" android:pathData="M27,60 L81,60 L81,72 L27,72 Z"/>
+              <path android:fillColor="#CE1126" android:pathData="M40.50,49.60 L41.53,52.58 L44.68,52.64 L42.17,54.54 L43.09,57.56 L40.50,55.76 L37.91,57.56 L38.83,54.54 L36.32,52.64 L39.47,52.58 Z"/>
+              <path android:fillColor="#CE1126" android:pathData="M54.00,49.60 L55.03,52.58 L58.18,52.64 L55.67,54.54 L56.59,57.56 L54.00,55.76 L51.41,57.56 L52.33,54.54 L49.82,52.64 L52.97,52.58 Z"/>
+              <path android:fillColor="#CE1126" android:pathData="M67.50,49.60 L68.53,52.58 L71.68,52.64 L69.17,54.54 L70.09,57.56 L67.50,55.76 L64.91,57.56 L65.83,54.54 L63.32,52.64 L66.47,52.58 Z"/>
+          </vector>
+          EOF_7
+          cat > app/src/main/java/com/example/discovery/MainActivity.kt <<'EOF_8'
           package com.example.discovery
 
           import android.app.Application
@@ -97,14 +124,27 @@ jobs:
           import android.os.Bundle
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
+          import androidx.compose.foundation.Canvas
+          import androidx.compose.foundation.Image
+          import androidx.compose.foundation.background
           import androidx.compose.foundation.clickable
           import androidx.compose.foundation.layout.*
           import androidx.compose.foundation.lazy.LazyColumn
           import androidx.compose.foundation.lazy.items
           import androidx.compose.material3.*
           import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
+          import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.geometry.Size
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.Path
+          import androidx.compose.ui.graphics.drawscope.DrawScope
+          import androidx.compose.ui.layout.ContentScale
           import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.res.painterResource
+          import androidx.compose.ui.text.font.FontWeight
           import androidx.compose.ui.unit.dp
           import androidx.lifecycle.AndroidViewModel
           import androidx.lifecycle.viewModelScope
@@ -125,9 +165,7 @@ jobs:
                   if (ip == null) { error = "اتصل بشبكة Wi-Fi أولاً"; return }
                   error = null; devices = emptyList(); scanning = true
                   viewModelScope.launch {
-                      // 1) أجهزة Ubiquiti أولاً (سريع)
                       Scanner.ubiquitiDiscovery().forEach { add(it) }
-                      // 2) ثم فحص باقي الشبكة
                       Scanner.sweep(ip) { add(it) }
                       scanning = false
                   }
@@ -154,7 +192,56 @@ jobs:
               }
           }
 
-          @OptIn(ExperimentalMaterial3Api::class)
+          /** علم الثورة السورية: أخضر / أبيض بثلاث نجوم حمراء / أسود */
+          @Composable
+          fun FlagBadge(modifier: Modifier = Modifier) {
+              Canvas(modifier) {
+                  val h = size.height / 3f
+                  drawRect(Color(0xFF007A3D), Offset(0f, 0f), Size(size.width, h))
+                  drawRect(Color.White, Offset(0f, h), Size(size.width, h))
+                  drawRect(Color.Black, Offset(0f, 2 * h), Size(size.width, h))
+                  listOf(0.25f, 0.5f, 0.75f).forEach { fx ->
+                      drawStar(Offset(size.width * fx, h * 1.5f), h * 0.42f)
+                  }
+              }
+          }
+
+          private fun DrawScope.drawStar(c: Offset, r: Float) {
+              val path = Path()
+              for (i in 0 until 10) {
+                  val rad = if (i % 2 == 0) r else r * 0.4f
+                  val a = Math.toRadians(-90.0 + i * 36.0)
+                  val x = c.x + (rad * Math.cos(a)).toFloat()
+                  val y = c.y + (rad * Math.sin(a)).toFloat()
+                  if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+              }
+              path.close()
+              drawPath(path, Color(0xFFCE1126))
+          }
+
+          @Composable
+          fun Header() {
+              Box(Modifier.fillMaxWidth().height(210.dp)) {
+                  Image(
+                      painterResource(R.drawable.header), null,
+                      Modifier.fillMaxSize(), contentScale = ContentScale.Crop
+                  )
+                  Box(
+                      Modifier.fillMaxSize().background(
+                          Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))
+                      )
+                  )
+                  FlagBadge(Modifier.padding(16.dp).size(60.dp, 40.dp).align(Alignment.TopStart))
+                  Text(
+                      "Sami ديسكفري",
+                      color = Color.White,
+                      style = MaterialTheme.typography.headlineMedium,
+                      fontWeight = FontWeight.Bold,
+                      modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
+                  )
+              }
+          }
+
           @Composable
           fun Screen(vm: DiscoveryViewModel = viewModel()) {
               val ctx = LocalContext.current
@@ -166,36 +253,42 @@ jobs:
               LaunchedEffect(Unit) { vm.scan() }
 
               Scaffold(
-                  topBar = { TopAppBar(title = { Text("Discovery") }) },
                   floatingActionButton = {
                       ExtendedFloatingActionButton(onClick = { vm.scan() }) {
                           Text(if (vm.scanning) "جارٍ الفحص..." else "فحص")
                       }
                   }
               ) { pad ->
-                  Column(Modifier.padding(pad).padding(12.dp)) {
-                      OutlinedTextField(
-                          value = query, onValueChange = { query = it },
-                          label = { Text("بحث (IP / اسم / MAC)") },
-                          singleLine = true, modifier = Modifier.fillMaxWidth()
-                      )
-                      if (vm.scanning) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
-                      vm.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                      Text("${list.size} جهاز", Modifier.padding(vertical = 4.dp))
-                      LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                          items(list, key = { it.ip }) { d ->
-                              Card(Modifier.fillMaxWidth().clickable {
-                                  val scheme = if (443 in d.ports && 80 !in d.ports) "https" else "http"
-                                  ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://${d.ip}")))
-                              }) {
-                                  Column(Modifier.padding(12.dp)) {
-                                      Text(d.name.ifEmpty { d.ip }, style = MaterialTheme.typography.titleMedium)
-                                      Text("IP: ${d.ip}")
-                                      if (d.mac.isNotEmpty()) Text("MAC: ${d.mac}")
-                                      if (d.model.isNotEmpty()) Text("الموديل: ${d.model}")
-                                      if (d.firmware.isNotEmpty()) Text("الفيرموير: ${d.firmware}")
-                                      if (d.ports.isNotEmpty()) Text("المنافذ: ${d.ports.joinToString()}")
-                                      if (d.ubiquiti) AssistChip(onClick = {}, label = { Text("Ubiquiti") })
+                  Column(Modifier.padding(pad).fillMaxSize()) {
+                      Header()
+                      Column(Modifier.fillMaxSize().padding(12.dp)) {
+                          OutlinedTextField(
+                              value = query, onValueChange = { query = it },
+                              label = { Text("بحث (IP / اسم / MAC)") },
+                              singleLine = true, modifier = Modifier.fillMaxWidth()
+                          )
+                          if (vm.scanning) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                          vm.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                          Text("${list.size} جهاز", Modifier.padding(vertical = 4.dp))
+                          LazyColumn(
+                              Modifier.weight(1f),
+                              contentPadding = PaddingValues(bottom = 80.dp),
+                              verticalArrangement = Arrangement.spacedBy(8.dp)
+                          ) {
+                              items(list, key = { it.ip }) { d ->
+                                  Card(Modifier.fillMaxWidth().clickable {
+                                      val scheme = if (443 in d.ports && 80 !in d.ports) "https" else "http"
+                                      ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://${d.ip}")))
+                                  }) {
+                                      Column(Modifier.padding(12.dp)) {
+                                          Text(d.name.ifEmpty { d.ip }, style = MaterialTheme.typography.titleMedium)
+                                          Text("IP: ${d.ip}")
+                                          if (d.mac.isNotEmpty()) Text("MAC: ${d.mac}")
+                                          if (d.model.isNotEmpty()) Text("الموديل: ${d.model}")
+                                          if (d.firmware.isNotEmpty()) Text("الفيرموير: ${d.firmware}")
+                                          if (d.ports.isNotEmpty()) Text("المنافذ: ${d.ports.joinToString()}")
+                                          if (d.ubiquiti) AssistChip(onClick = {}, label = { Text("Ubiquiti") })
+                                      }
                                   }
                               }
                           }
@@ -204,8 +297,8 @@ jobs:
               }
           }
 
-          EOF_5
-          cat > app/src/main/java/com/example/discovery/Scanner.kt <<'EOF_6'
+          EOF_8
+          cat > app/src/main/java/com/example/discovery/Scanner.kt <<'EOF_9'
           package com.example.discovery
 
           import android.content.Context
@@ -302,10 +395,10 @@ jobs:
               } catch (_: Exception) { false }
           }
 
-          EOF_6
+          EOF_9
       - name: Build
         run: gradle assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: Discovery-APK
+          name: Sami-Discovery-APK
           path: app/build/outputs/apk/debug/app-debug.apk
